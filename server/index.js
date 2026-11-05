@@ -134,7 +134,7 @@ const getServiceWorkerResponse = createServiceWorkerResponseLoader(
 // Das prüft die Build-Revision schon beim Start und liefert in der Entwicklung
 // nach einer sw.js-Änderung dennoch die neue Quelle ohne manuellen Neustart.
 getServiceWorkerResponse();
-const DEFAULT_APP_NAME = 'Yuvomi';
+const DEFAULT_APP_NAME = 'Dworak Planer';
 
 // Der Vertrag fuer native Clients, als eine Zahl, die jeder vor der Anmeldung
 // lesen darf. Sie steigt nur, wenn ein Client ohne die Aenderung nicht mehr
@@ -480,9 +480,9 @@ app.get('/manifest.webmanifest', apiLimiter, (req, res) => {
   res.type('application/manifest+json');
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.json({
-    name: `${appName} Familienplaner`,
+    name: appName,
     short_name: appName,
-    description: 'Selbstgehostet: dein Zuhause an einem Ort - allein, zu zweit oder als Familie',
+    description: 'Rodzinny planer Dworaków',
     id: '/',
     start_url: '/',
     scope: '/',
