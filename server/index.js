@@ -113,6 +113,7 @@ import { moduleAccessVerdict, MODULE_ACCESS_DENIED, MODULE_ACCESS_READ_ONLY } fr
 import { BODY_LIMIT, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './utils/upload-limit.js';
 import { createServiceWorkerResponseLoader } from './utils/service-worker.js';
 import { createStaticAssets } from './utils/static-assets.js';
+import { downloadFromDrive, startDriveSync, uploadToDrive } from './services/gdrive-db-sync.js';
 
 const log     = createLogger('Server');
 const logSync = createLogger('Sync');
@@ -958,6 +959,9 @@ try {
   log.warn('Initial module registry scan failed:', err.message);
 }
 
+// Google Drive DB sync — pobierz bazę przed startem (jeśli GOOGLE_SERVICE_ACCOUNT_JSON ustawiony)
+await downloadFromDrive();
+
 const server = app.listen(PORT, BIND_ADDRESS, () => {
   // Der gebundene Port statt der Wunschangabe: mit PORT=0 vergibt der Kernel
   // einen freien Port, und genau der gehoert ins Log. Fuer den Regelfall
@@ -976,6 +980,9 @@ const server = app.listen(PORT, BIND_ADDRESS, () => {
   } catch { /* ohne Antwort lieber keine falsche Entwarnung */ }
   const loginWarning = passwordLoginWarning({ hasLinkedSsoAccount: linkedSso });
   if (loginWarning) logYuvomi.warn(loginWarning);
+
+  // Google Drive periodic sync
+  startDriveSync();
 
   // Erster Sync nach 10 Sekunden (warten bis DB vollständig initialisiert)
   //
@@ -1044,6 +1051,7 @@ async function shutdown(signal) {
   const deadline = Date.now() + SHUTDOWN_TIMEOUT_MS;
 
   stopBackupScheduler();
+  await uploadToDrive().catch(() => {});
 
   // Keine neuen Verbindungen; laufende Anfragen kommen zu Ende. Eine
   // Keep-alive-Verbindung (jeder Browser haelt eine) hielte `close()` sonst
