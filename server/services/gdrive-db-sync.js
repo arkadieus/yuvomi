@@ -11,7 +11,7 @@ const log = createLogger('GDriveSync');
 
 const DB_FILENAME = 'yuvomi.db';
 const FOLDER_NAME = 'yuvomi-backup';
-const UPLOAD_INTERVAL_MS = 5 * 60 * 1000; // 5 minut
+const UPLOAD_INTERVAL_MS = 60 * 1000; // 1 minuta
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
