@@ -500,7 +500,7 @@ app.get('/manifest.webmanifest', apiLimiter, (req, res) => {
     // (#F5F3ED = --neutral-100, warmes Papier).
     theme_color: '#F5F3ED',
     background_color: '#F5F3ED',
-    lang: 'de-DE',
+    lang: 'pl-PL',
     categories: ['productivity', 'lifestyle'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
