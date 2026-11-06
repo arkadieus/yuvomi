@@ -6,6 +6,7 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { createLogger } from '../logger.js';
+import * as db from '../db.js';
 
 const log = createLogger('GDriveSync');
 
@@ -137,6 +138,12 @@ export async function downloadFromDrive() {
 export async function uploadToDrive() {
   if (!serviceAccount || !dbPath) return;
   if (!existsSync(dbPath)) return;
+
+  // Checkpoint WAL przed odczytem pliku — bez tego WAL nie jest scalony
+  // z głównym plikiem .db i uploadujemy niekompletny backup (bez nowych danych).
+  try {
+    if (db.isDatabaseOpen()) db.get().pragma('wal_checkpoint(PASSIVE)');
+  } catch { /* best effort */ }
 
   try {
     const token = await getAccessToken();
