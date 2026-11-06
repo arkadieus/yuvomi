@@ -11,7 +11,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, renameSync } from 'node:fs';
 import { createLogger } from './logger.js';
 import { readBindAddress } from './utils/bind-address.js';
 import * as db from './db.js';
@@ -960,7 +960,19 @@ try {
 }
 
 // Google Drive DB sync — pobierz bazę przed startem (jeśli GOOGLE_SERVICE_ACCOUNT_JSON ustawiony)
-await downloadFromDrive();
+// WAŻNE: db.init() uruchamia się przy imporcie db.js (side effect ES modułu), otwierając
+// SQLite na pustym pliku. downloadFromDrive() zwraca ścieżkę do pliku tymczasowego.
+// Zamykamy połączenie SQLite, podmeniamy plik atomicznie, otwieramy ponownie.
+{
+  const driveStagingPath = await downloadFromDrive();
+  if (driveStagingPath) {
+    const dbPath = process.env.DB_PATH || './data/yuvomi.db';
+    await db.closeForShutdown(Date.now() + 5000);
+    renameSync(driveStagingPath, dbPath);
+    db.init();
+    log.info('Baza danych przywrócona z Drive — połączenie SQLite odświeżone');
+  }
+}
 
 const server = app.listen(PORT, BIND_ADDRESS, () => {
   // Der gebundene Port statt der Wunschangabe: mit PORT=0 vergibt der Kernel

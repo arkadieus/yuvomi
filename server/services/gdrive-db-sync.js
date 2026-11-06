@@ -122,9 +122,12 @@ export async function downloadFromDrive() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const buffer = Buffer.from(await res.arrayBuffer());
-    writeFileSync(dbP, buffer);
-    log.info(`Pobrano bazę z Drive (${buffer.length} bajtów) → ${dbP}`);
-    return true;
+    // Zapisujemy do pliku tymczasowego — nie nadpisujemy żywego pliku SQLite,
+    // który serwer już otworzył. Caller zamknie SQLite i atomicznie podmieni plik.
+    const stagingPath = dbP + '.drive-tmp';
+    writeFileSync(stagingPath, buffer);
+    log.info(`Pobrano bazę z Drive (${buffer.length} bajtów) → ${stagingPath}`);
+    return stagingPath;
   } catch (e) {
     log.error('Błąd pobierania z Drive:', e.message);
     return false;
