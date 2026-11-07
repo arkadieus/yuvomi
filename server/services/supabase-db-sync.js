@@ -71,7 +71,7 @@ export async function downloadFromSupabase() {
       headers: authHeaders(),
     });
 
-    if (res.status === 404) {
+    if (res.status === 404 || res.status === 400) {
       log.info('Brak pliku yuvomi.db w Supabase — startujemy od zera');
       return false;
     }
