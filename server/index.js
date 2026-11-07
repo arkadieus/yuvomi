@@ -11,7 +11,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
-import { readFileSync, renameSync, unlinkSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createLogger } from './logger.js';
 import { readBindAddress } from './utils/bind-address.js';
 import * as db from './db.js';
@@ -113,7 +113,7 @@ import { moduleAccessVerdict, MODULE_ACCESS_DENIED, MODULE_ACCESS_READ_ONLY } fr
 import { BODY_LIMIT, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './utils/upload-limit.js';
 import { createServiceWorkerResponseLoader } from './utils/service-worker.js';
 import { createStaticAssets } from './utils/static-assets.js';
-import { downloadFromSupabase, startSupabaseSync, uploadToSupabase } from './services/supabase-db-sync.js';
+import { startSupabaseSync } from './services/supabase-db-sync.js';
 
 const log     = createLogger('Server');
 const logSync = createLogger('Sync');
@@ -959,28 +959,9 @@ try {
   log.warn('Initial module registry scan failed:', err.message);
 }
 
-// Supabase DB sync — pobierz bazę przed startem (jeśli SUPABASE_URL/SUPABASE_SERVICE_KEY ustawione)
-// WAŻNE: db.init() uruchamia się przy imporcie db.js (side effect ES modułu), otwierając
-// SQLite na pustym pliku. downloadFromSupabase() zwraca ścieżkę do pliku tymczasowego.
-// Zamykamy połączenie SQLite, podmeniamy plik atomicznie, otwieramy ponownie.
-{
-  const driveStagingPath = await downloadFromSupabase();
-  if (driveStagingPath) {
-    const dbPath = process.env.DB_PATH || './data/yuvomi.db';
-    await db.closeForShutdown(Date.now() + 5000);
-    renameSync(driveStagingPath, dbPath);
-    try {
-      db.init();
-      log.info('Baza danych przywrócona z Supabase — połączenie SQLite odświeżone');
-    } catch (restoreErr) {
-      // Pobrany plik jest zaszyfrowany innym kluczem (np. poprzedni klucz auto-generowany).
-      // Usuwamy go i startujemy od zera z nowym pustym DB zamiast crashować.
-      log.error('Supabase restore: DB z innym kluczem — startuję od zera:', restoreErr.message);
-      try { unlinkSync(dbPath); } catch { /* ignoruj jeśli nie istnieje */ }
-      db.init();
-    }
-  }
-}
+// Supabase DB sync — przywracanie odbywa się teraz w server/restore-db.js,
+// uruchamianym PRZED tym procesem (patrz Dockerfile CMD). Tu tylko startujemy
+// cykliczny upload.
 
 const server = app.listen(PORT, BIND_ADDRESS, () => {
   // Der gebundene Port statt der Wunschangabe: mit PORT=0 vergibt der Kernel
