@@ -70,4 +70,4 @@ ENV APP_BUILD_REVISION=${APP_BUILD_REVISION}
 EXPOSE 3000
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["sh", "-c", "node server/restore-db.js && exec node server/index.js"]
+CMD ["sh", "-c", "if [ -z \"$DB_ENCRYPTION_KEY\" ]; then k=$(node server/derive-key.js); if [ -n \"$k\" ]; then export DB_ENCRYPTION_KEY=\"$k\"; fi; fi; node server/restore-db.js && exec node server/index.js"]

@@ -6,5 +6,5 @@
 
 /** @returns {string} */
 export function brandMarkSvg() {
-  return `<img class="brand-mark" src="/icons/icon-192.png" alt="" aria-hidden="true" focusable="false" style="object-fit:contain">`;
+  return `<img class="brand-mark" src="/icons/icon-192.png?v=ad1" alt="" aria-hidden="true" focusable="false" style="object-fit:contain">`;
 }

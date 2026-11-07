@@ -113,7 +113,7 @@ import { moduleAccessVerdict, MODULE_ACCESS_DENIED, MODULE_ACCESS_READ_ONLY } fr
 import { BODY_LIMIT, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './utils/upload-limit.js';
 import { createServiceWorkerResponseLoader } from './utils/service-worker.js';
 import { createStaticAssets } from './utils/static-assets.js';
-import { startSupabaseSync } from './services/supabase-db-sync.js';
+import { startSupabaseSync, uploadToSupabase } from './services/supabase-db-sync.js';
 
 const log     = createLogger('Server');
 const logSync = createLogger('Sync');
