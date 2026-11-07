@@ -113,7 +113,7 @@ import { moduleAccessVerdict, MODULE_ACCESS_DENIED, MODULE_ACCESS_READ_ONLY } fr
 import { BODY_LIMIT, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from './utils/upload-limit.js';
 import { createServiceWorkerResponseLoader } from './utils/service-worker.js';
 import { createStaticAssets } from './utils/static-assets.js';
-import { downloadFromDrive, startDriveSync, uploadToDrive } from './services/gdrive-db-sync.js';
+import { downloadFromSupabase, startSupabaseSync, uploadToSupabase } from './services/supabase-db-sync.js';
 
 const log     = createLogger('Server');
 const logSync = createLogger('Sync');
@@ -959,12 +959,12 @@ try {
   log.warn('Initial module registry scan failed:', err.message);
 }
 
-// Google Drive DB sync — pobierz bazę przed startem (jeśli GOOGLE_SERVICE_ACCOUNT_JSON ustawiony)
+// Supabase DB sync — pobierz bazę przed startem (jeśli SUPABASE_URL/SUPABASE_SERVICE_KEY ustawione)
 // WAŻNE: db.init() uruchamia się przy imporcie db.js (side effect ES modułu), otwierając
-// SQLite na pustym pliku. downloadFromDrive() zwraca ścieżkę do pliku tymczasowego.
+// SQLite na pustym pliku. downloadFromSupabase() zwraca ścieżkę do pliku tymczasowego.
 // Zamykamy połączenie SQLite, podmeniamy plik atomicznie, otwieramy ponownie.
 {
-  const driveStagingPath = await downloadFromDrive();
+  const driveStagingPath = await downloadFromSupabase();
   if (driveStagingPath) {
     const dbPath = process.env.DB_PATH || './data/yuvomi.db';
     await db.closeForShutdown(Date.now() + 5000);
@@ -993,8 +993,8 @@ const server = app.listen(PORT, BIND_ADDRESS, () => {
   const loginWarning = passwordLoginWarning({ hasLinkedSsoAccount: linkedSso });
   if (loginWarning) logYuvomi.warn(loginWarning);
 
-  // Google Drive periodic sync
-  startDriveSync();
+  // Supabase periodic sync
+  startSupabaseSync();
 
   // Erster Sync nach 10 Sekunden (warten bis DB vollständig initialisiert)
   //
@@ -1063,7 +1063,7 @@ async function shutdown(signal) {
   const deadline = Date.now() + SHUTDOWN_TIMEOUT_MS;
 
   stopBackupScheduler();
-  await uploadToDrive().catch(() => {});
+  await uploadToSupabase().catch(() => {});
 
   // Keine neuen Verbindungen; laufende Anfragen kommen zu Ende. Eine
   // Keep-alive-Verbindung (jeder Browser haelt eine) hielte `close()` sonst

@@ -52,7 +52,7 @@ import { passwordResetService as defaultResetService } from './services/password
 import { inviteService as defaultInviteService } from './services/invites.js';
 import { parseScopes, serializeScopes, normalizeScopes } from './scopes.js';
 import { hashPassword, normalizePassword, verifyPassword } from './utils/password.js';
-import { uploadToDrive } from './services/gdrive-db-sync.js';
+import { uploadToSupabase } from './services/supabase-db-sync.js';
 import { getSupportedLocales, isSupportedLocale, resolveHouseholdLocale } from './utils/i18n.js';
 import { isValidTimeZone } from './utils/timezone.js';
 import { accountIdsByEmail, emailMatchKey } from './utils/email-match.js';
@@ -2882,8 +2882,8 @@ router.post('/setup', loginLimiter, async (req, res) => {
     res.status(201).json({
       user: publicUser(createdUser),
     });
-    // Natychmiast zapisz do Drive po założeniu pierwszego konta
-    uploadToDrive().catch(() => {});
+    // Natychmiast zapisz do Supabase po założeniu pierwszego konta
+    uploadToSupabase().catch(() => {});
   } catch (err) {
     if (err.message?.includes('UNIQUE constraint')) {
       return res.status(409).json({ error: 'Username is already taken.', code: 409 });
