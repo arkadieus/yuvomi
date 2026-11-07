@@ -127,8 +127,6 @@
   width: var(--space-16);
   height: var(--space-16);
   margin-bottom: var(--space-4);
-  border-radius: 22.5%;
-  box-shadow: var(--shadow-md);
 }
 
 /* DER KOPF UEBER EINER KARTE MIT EIGENEM TITEL (R16, utils/auth-ui.js):
