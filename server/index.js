@@ -11,7 +11,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
-import { readFileSync, renameSync } from 'node:fs';
+import { readFileSync, renameSync, unlinkSync } from 'node:fs';
 import { createLogger } from './logger.js';
 import { readBindAddress } from './utils/bind-address.js';
 import * as db from './db.js';
@@ -969,8 +969,16 @@ try {
     const dbPath = process.env.DB_PATH || './data/yuvomi.db';
     await db.closeForShutdown(Date.now() + 5000);
     renameSync(driveStagingPath, dbPath);
-    db.init();
-    log.info('Baza danych przywrócona z Drive — połączenie SQLite odświeżone');
+    try {
+      db.init();
+      log.info('Baza danych przywrócona z Supabase — połączenie SQLite odświeżone');
+    } catch (restoreErr) {
+      // Pobrany plik jest zaszyfrowany innym kluczem (np. poprzedni klucz auto-generowany).
+      // Usuwamy go i startujemy od zera z nowym pustym DB zamiast crashować.
+      log.error('Supabase restore: DB z innym kluczem — startuję od zera:', restoreErr.message);
+      try { unlinkSync(dbPath); } catch { /* ignoruj jeśli nie istnieje */ }
+      db.init();
+    }
   }
 }
 
