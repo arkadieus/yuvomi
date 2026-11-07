@@ -194,6 +194,8 @@ export function createPushService({
       ['VAPID_SUBJECT', process.env.VAPID_SUBJECT],
       ['email_from_address', cfgGet('email_from_address')],
       ['BASE_URL', process.env.BASE_URL],
+      // Render.com ustawia tę zmienną automatycznie — nie wymaga ręcznej konfiguracji
+      ['RENDER_EXTERNAL_URL', process.env.RENDER_EXTERNAL_URL],
     ];
 
     for (const [source, raw] of candidates) {
