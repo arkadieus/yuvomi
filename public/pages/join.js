@@ -63,12 +63,13 @@ export async function render(container) {
         </form>
         <a class="btn btn--primary auth-form__submit" id="join-to-login" href="/login" data-link hidden>${esc(t('join.toLogin'))}</a>
         <p class="auth-form__forgot" id="join-login"><a href="/login" data-link>${esc(t('forgotPassword.backToLogin'))}</a></p>
-        <div id="join-install-section" hidden style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--color-border,#e5e3dd)">
-          <p style="font-size:.875rem;color:var(--color-text-secondary,#666);margin:0 0 .75rem">${esc(t('install.subtitle'))}</p>
+        <div id="join-install-section" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--color-border,#e5e3dd)">
+          <p style="font-size:.875rem;color:var(--color-text-secondary,#666);margin:0 0 .75rem">${esc(t('install.title'))}</p>
+          <p id="join-manual-hint" hidden style="font-size:.875rem;color:var(--color-text-secondary,#666);margin:0 0 .75rem">W menu przeglądarki (⋮ lub Udostępnij) wybierz „Zainstaluj aplikację” albo „Dodaj do ekranu głównego”.</p>
           <div id="join-ios-hint" hidden style="font-size:.875rem;color:var(--color-text-secondary,#666);margin-bottom:.75rem">
             ${esc(t('install.iosTip1'))}<span aria-label="udostępnij" style="display:inline-block;vertical-align:middle;width:1.1em;height:1.1em;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23007AFF%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8%22/><polyline points=%2216 6 12 2 8 6%22/><line x1=%2212%22 y1=%222%22 x2=%2212%22 y2=%2215%22/></svg>') center/contain no-repeat"></span>${esc(t('install.iosTip2'))}
           </div>
-          <button id="join-install-btn" class="btn btn--secondary" hidden style="width:100%">${esc(t('install.installButton'))}</button>
+          <button id="join-install-btn" type="button" class="btn btn--secondary" style="width:100%">${esc(t('install.installButton'))}</button>
           <a id="join-after-install" class="btn btn--primary auth-form__submit" href="/login" data-link hidden style="margin-top:.5rem">${esc(t('join.toLogin'))}</a>
         </div>
       </div>
@@ -90,6 +91,43 @@ export async function render(container) {
   const displayNameEl = container.querySelector('#join-display-name');
   const displayNameHint = container.querySelector('#join-display-name-hint');
   wireLinks(container);
+
+  // Stały przycisk instalacji: widoczny od początku, niezależnie od rejestracji.
+  // Gdy przeglądarka nie pozwala zainstalować jednym kliknięciem, pokazuje instrukcję ręczną.
+  const installSection = container.querySelector('#join-install-section');
+  const iosHint = container.querySelector('#join-ios-hint');
+  const manualHint = container.querySelector('#join-manual-hint');
+  const installBtn = container.querySelector('#join-install-btn');
+  const afterInstall = container.querySelector('#join-after-install');
+  let registered = false;
+  const goLogin = () => window.yuvomi.navigate('/login');
+
+  const unsubInstall = onPwaInstallStateChanged((s) => {
+    if (s.installed) {
+      if (registered) { unsubInstall?.(); goLogin(); return; }
+      installSection.hidden = true;
+      return;
+    }
+    installSection.hidden = false;
+    if (iosHint) iosHint.hidden = !s.ios;
+    if (manualHint && s.canPrompt) manualHint.hidden = true;
+  });
+
+  installBtn?.addEventListener('click', async () => {
+    let outcome;
+    try { ({ outcome } = await promptPwaInstall()); } catch { outcome = 'unavailable'; }
+    if (outcome === 'unavailable' && manualHint) manualHint.hidden = false;
+    if (outcome === 'ios' && iosHint) iosHint.hidden = false;
+    if (outcome === 'accepted' && registered) goLogin();
+  });
+
+  afterInstall?.addEventListener('click', (e) => { e.preventDefault(); goLogin(); });
+
+  function markRegistered() {
+    registered = true;
+    if (afterInstall) afterInstall.hidden = false;
+    if (getPwaInstallState().installed) setTimeout(goLogin, 1500);
+  }
 
   const show = (el, msg) => { el.textContent = msg; el.hidden = false; };
   // Der Fokus wandert in die Fehlermeldung, damit auch sehende Tastaturnutzer
@@ -178,49 +216,6 @@ export async function render(container) {
   if (preview.display_name) fix(displayNameEl, displayNameHint, preview.display_name);
   (preview.username ? displayNameEl : usernameEl).focus();
 
-  // Pokazuje sekcję instalacyjną po pomyślnej rejestracji.
-  // Na iOS: instrukcje Share → "Dodaj do ekranu"; na Android/Chrome: przycisk Install.
-  // Bez progu interakcji (2 kliknięcia) — user otworzył link po raz pierwszy.
-  function showJoinInstall(c) {
-    const section = c.querySelector('#join-install-section');
-    if (!section) { setTimeout(() => window.yuvomi.navigate('/login'), 1500); return; }
-
-    const state = getPwaInstallState();
-    // Aplikacja już zainstalowana → prosto do logowania
-    if (state.installed) { setTimeout(() => window.yuvomi.navigate('/login'), 1500); return; }
-
-    section.hidden = false;
-    const iosHint = c.querySelector('#join-ios-hint');
-    const installBtn = c.querySelector('#join-install-btn');
-    const afterInstall = c.querySelector('#join-after-install');
-
-    if (state.ios) {
-      if (iosHint) iosHint.hidden = false;
-    }
-    if (state.canPrompt) {
-      if (installBtn) installBtn.hidden = false;
-    }
-    if (afterInstall) {
-      afterInstall.hidden = false;
-      afterInstall.addEventListener('click', (e) => { e.preventDefault(); window.yuvomi.navigate('/login'); });
-    }
-
-    installBtn?.addEventListener('click', async () => {
-      installBtn.disabled = true;
-      try {
-        await promptPwaInstall();
-      } catch { /* ignoruj odmowę */ }
-      window.yuvomi.navigate('/login');
-    });
-
-    // Aktualizuj przycisk jeśli zdarzenie beforeinstallprompt przyjdzie po renderze
-    const unsub = onPwaInstallStateChanged((s) => {
-      if (s.installed) { unsub(); window.yuvomi.navigate('/login'); return; }
-      if (installBtn) installBtn.hidden = !s.canPrompt;
-      if (iosHint) iosHint.hidden = !s.ios;
-    });
-  }
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideAuthError(form, errorEl);
@@ -251,7 +246,7 @@ export async function render(container) {
       form.hidden = true;
       intro.hidden = true;
       show(successEl, t('join.success'));
-      showJoinInstall(container);
+      markRegistered();
     } catch (err) {
       if (err?.status === 409) {
         showAuthError(errorEl, t('join.usernameTaken'), usernameEl);
