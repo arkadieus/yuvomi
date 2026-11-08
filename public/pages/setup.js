@@ -10,6 +10,7 @@ import { getLocale, t } from '/i18n.js';
 import { esc } from '/utils/html.js';
 import { authHeroHtml, authErrorHtml, wirePasswordToggle, passwordRuleHtml, flagField, hideAuthError, showAuthError } from '/utils/auth-ui.js';
 import { browserTimeZone } from '/utils/timezone.js';
+import { installSectionHtml, wireInstallSection } from '/utils/install-section.js';
 
 const VERSION_URL = '/api/v1/version';
 const DEFAULT_APP_NAME = 'Yuvomi';
@@ -67,11 +68,13 @@ export async function render(container) {
             <span class="auth-btn__label">${esc(t('setup.submitButton'))}</span>
           </button>
         </form>
+        ${installSectionHtml()}
       </div>
       <p class="auth-version" id="setup-version"></p>
     </main>
   `);
 
+  wireInstallSection(container);
   const form = container.querySelector('#setup-form');
   const errorEl = container.querySelector('#setup-error');
   const submitBtn = container.querySelector('#setup-btn');

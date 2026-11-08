@@ -7,6 +7,7 @@
 import { auth } from '/api.js';
 import { t } from '/i18n.js';
 import { esc } from '/utils/html.js';
+import { installSectionHtml, wireInstallSection } from '/utils/install-section.js';
 import { authHeroHtml, authErrorHtml, wirePasswordToggle, showAuthError } from '/utils/auth-ui.js';
 
 const VERSION_URL = '/api/v1/version';
@@ -109,10 +110,13 @@ export async function render(container) {
             <a href="/forgot-password" data-link>${esc(t('login.forgotPassword'))}</a>
           </p>
         </form>
+        ${installSectionHtml()}
       </div>
       <p class="auth-version" id="auth-version"></p>
     </main>
   `);
+
+  wireInstallSection(container);
 
   // Der SSO-Weg landet mit `?two_factor=1` hier: der Provider hat den Browser
   // umgeleitet, es gibt noch keine Sitzung, aber einen Wartezustand auf dem

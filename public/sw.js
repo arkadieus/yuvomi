@@ -606,6 +606,7 @@ const PAGE_MODULES = [
   // Der Precache-Guard las dynamische Importe bis dahin nicht.
   '/utils/auth-ui.js',
   '/utils/brand-mark.js',
+  '/utils/install-section.js',
   '/utils/avatar-crop.js',
   '/utils/lucide-icons.js',
   '/utils/sortable.js',
