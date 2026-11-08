@@ -1052,7 +1052,7 @@ test('tasks_default_visibility: PUT speichert den Wert, GET liefert ihn zurueck'
 test('tasks_default_visibility: ein anderer Nutzer sieht den eigenen Standard, nicht den des ersten', async () => {
   await put({ tasks_default_visibility: 'private' }, { userId: 1 });
   const r = await get({ userId: 3 });
-  assert.equal(r.body.data.tasks_default_visibility, 'all', 'Nutzer 3 sieht nicht den Wert von Nutzer 1');
+  assert.equal(r.body.data.tasks_default_visibility, 'assignees', 'Nutzer 3 sieht nicht den Wert von Nutzer 1');
   cfgDelete('tasks_default_visibility:user:1');
 });
 

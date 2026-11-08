@@ -1294,7 +1294,7 @@ function renderModalContent({ task = null, users = [], reminder = null } = {}) {
   // Wen der Zustaendigen-Picker anbietet: die Mitglieder und wer schon an der
   // Aufgabe steht. Versteckt wird er nur, wenn darin wirklich eine Person steht.
   const assigneePeople = withChosenPeople(users, task?.assigned_users);
-  const visibility = isEdit ? (task?.visibility || 'all') : (state.defaultVisibility || 'all');
+  const visibility = isEdit ? (task?.visibility || 'all') : (state.defaultVisibility || 'assignees');
   const locked = isEdit ? !!task?.locked : (state.defaultLocked === true);
 
   const selectedCat = task?.category ?? FALLBACK_CATEGORY;
@@ -6774,7 +6774,7 @@ async function ensureAwayMeta(user) {
  */
 function applyNewTaskDefaults(prefs) {
   state.defaultSyncTarget = prefs?.tasks_default_target || '';
-  state.defaultVisibility = prefs?.tasks_default_visibility || 'all';
+  state.defaultVisibility = prefs?.tasks_default_visibility || 'assignees';
   state.defaultLocked = prefs?.tasks_default_locked === true;
 }
 

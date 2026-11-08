@@ -1334,7 +1334,8 @@ router.post('/', (req, res) => {
     const points = req.body.points === undefined && !parent_task_id
       ? defaultTaskPoints()
       : clampPoints(req.body.points);
-    const visibility = normalizeVisibility(req.body.visibility);
+    // Domyślnie nowe zadanie widzą tylko autor i przypisane osoby (prywatność w rodzinie).
+    const visibility = normalizeVisibility(req.body.visibility, 'assignees');
 
     // Status beim Anlegen (#807). Das Feld stand im Dialog nur im
     // Bearbeiten-Zweig, und hier lag der zweite Halt: validiert wurde ein

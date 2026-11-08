@@ -683,7 +683,7 @@ router.get('/', (req, res) => {
         // Sichtbarkeit und Sperre als persoenliche Vorbelegung fuer neue
         // Aufgaben (#2125). Standardwert "all" und false, damit der Dialog
         // unveraendert wirkt, solange kein Nutzer etwas eingestellt hat.
-        tasks_default_visibility: cfgUserGet('tasks_default_visibility', req.authUserId) || 'all',
+        tasks_default_visibility: cfgUserGet('tasks_default_visibility', req.authUserId) || 'assignees',
         tasks_default_locked: cfgUserGet('tasks_default_locked', req.authUserId) === '1',
         schedule_hidden_templates: parseScheduleHiddenTemplates(cfgGet('schedule_hidden_templates')),
         weather_provider: cfgGet('weather_provider') ?? null,
@@ -1549,7 +1549,7 @@ router.put('/', (req, res) => {
         // Sichtbarkeit und Sperre als persoenliche Vorbelegung fuer neue
         // Aufgaben (#2125). Standardwert "all" und false, damit der Dialog
         // unveraendert wirkt, solange kein Nutzer etwas eingestellt hat.
-        tasks_default_visibility: cfgUserGet('tasks_default_visibility', req.authUserId) || 'all',
+        tasks_default_visibility: cfgUserGet('tasks_default_visibility', req.authUserId) || 'assignees',
         tasks_default_locked: cfgUserGet('tasks_default_locked', req.authUserId) === '1',
         schedule_hidden_templates: parseScheduleHiddenTemplates(cfgGet('schedule_hidden_templates')),
         weather_provider: cfgGet('weather_provider') ?? null,
