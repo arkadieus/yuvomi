@@ -212,7 +212,7 @@ function countRebasableTasks(points) {
 const ASSIGNED_USERS_SQL = `(
   SELECT json_group_array(json_object(
     'id', u.id, 'display_name', u.display_name, 'color', u.avatar_color,
-    'avatar_data', ${personAvatarUrlSql('u')}
+    'avatar_data', ${personAvatarUrlSql('u')}, 'accept_state', ta.accept_state
   ))
   FROM task_assignments ta JOIN users u ON u.id = ta.user_id
   WHERE ta.task_id = t.id
@@ -307,10 +307,45 @@ function parseAssignedTo(val) {
   return [];
 }
 
-function setAssignments(d, taskId, userIds) {
+/**
+ * Zapisuje wykonawców zadania. Z `actorId` włącza akceptację: kto już był przypisany,
+ * zachowuje swój stan; osoba działająca przypisuje się sama = od razu 'accepted';
+ * każdy nowy wykonawca wyznaczony przez kogoś innego dostaje 'pending'.
+ * Bez `actorId` (serie, CalDAV, kopie) wszyscy są 'accepted', jak dotąd.
+ * Zwraca id osób, które właśnie czekają na akceptację (do powiadomienia).
+ */
+function setAssignments(d, taskId, userIds, { actorId = null } = {}) {
+  const before = new Map(d.prepare('SELECT user_id, accept_state FROM task_assignments WHERE task_id = ?')
+    .all(taskId).map((r) => [r.user_id, r.accept_state]));
   d.prepare('DELETE FROM task_assignments WHERE task_id = ?').run(taskId);
-  const ins = d.prepare('INSERT OR IGNORE INTO task_assignments (task_id, user_id) VALUES (?, ?)');
-  for (const uid of userIds) ins.run(taskId, uid);
+  const ins = d.prepare('INSERT OR IGNORE INTO task_assignments (task_id, user_id, accept_state) VALUES (?, ?, ?)');
+  const newlyPending = [];
+  for (const uid of userIds) {
+    let state = 'accepted';
+    if (actorId !== null) {
+      if (before.has(uid)) state = before.get(uid);
+      else if (uid !== actorId) { state = 'pending'; newlyPending.push(uid); }
+    }
+    ins.run(taskId, uid, state);
+  }
+  return newlyPending;
+}
+
+/** Push do osób, którym ktoś właśnie wyznaczył zadanie (nie blokuje odpowiedzi). */
+function notifyAssigned(taskId, title, actorId, userIds) {
+  if (!userIds.length) return;
+  const d = db.get();
+  const who = d.prepare('SELECT display_name FROM users WHERE id = ?').get(actorId)?.display_name || '';
+  for (const uid of userIds) {
+    Promise.resolve()
+      .then(() => pushService.sendPushToUser(uid, {
+        title: `${who} wyznaczył(a) Ci zadanie`,
+        body: `${title} — otwórz i zaakceptuj lub odrzuć.`,
+        url: `/tasks?task=${taskId}`,
+        tag: `task-assign-${taskId}`,
+      }))
+      .catch((e) => log.warn(`push do ${uid}: ${e.message}`));
+  }
 }
 
 /**
@@ -1380,6 +1415,7 @@ router.post('/', (req, res) => {
       if (!mayEditTaskDefinition(parent, req)) return res.status(403).json(LOCKED_ERROR);
     }
 
+    let newlyPending = [];
     const taskId = db.get().transaction(() => {
       const result = db.get().prepare(`
         INSERT INTO tasks
@@ -1393,7 +1429,8 @@ router.post('/', (req, res) => {
         is_recurring ? 1 : 0, recurrence_rule, recurrence_from_completion ? 1 : 0, points, visibility,
         countdown ? 1 : 0, req.body.locked ? 1 : 0
       );
-      setAssignments(db.get(), result.lastInsertRowid, userIds);
+      newlyPending = setAssignments(db.get(), result.lastInsertRowid, userIds,
+        { actorId: req.authUserId || req.session.userId });
       if (rotationIn.mode !== undefined || rotationIn.pool !== undefined) {
         setRotation(db.get(), result.lastInsertRowid, { mode: rotationIn.mode ?? null, pool: rotationIn.pool ?? null });
       }
@@ -1439,6 +1476,7 @@ router.post('/', (req, res) => {
     attachTags([task]);
     attachRotation([task]);
     res.status(201).json({ data: task });
+    notifyAssigned(task.id, task.title, req.authUserId || req.session.userId, newlyPending);
     if (syncTarget) pushToCalDAV('Neue Aufgabe');
   } catch (err) {
     log.error('POST / error:', err);
@@ -1614,6 +1652,7 @@ router.put('/:id', (req, res) => {
     let spawned = false;
     let nextDueDate = null;
     let updated;
+    let newlyPendingPut = [];
     db.get().transaction(() => {
       db.get().prepare(`
         UPDATE tasks SET
@@ -1634,7 +1673,8 @@ router.put('/:id', (req, res) => {
              // Aufgabe steht (wie im Einkauf, shopping.js).
              category,
              req.params.id);
-      setAssignments(db.get(), task.id, userIds);
+      newlyPendingPut = setAssignments(db.get(), task.id, userIds,
+        { actorId: req.authUserId || req.session.userId });
       // Rotation nur bei ausdruecklichem Feld schreiben (#647: nicht
       // mitgeschickt heisst nicht angefasst); null loescht Modus und Pool.
       if (rotationIn.mode !== undefined || rotationIn.pool !== undefined) {
@@ -1713,6 +1753,7 @@ router.put('/:id', (req, res) => {
 
     res.json({ data: updated });
 
+    notifyAssigned(updated.id, updated.title, req.authUserId || req.session.userId, newlyPendingPut);
     if (pending || undone || syncTarget || spawned) pushToCalDAV('Änderung');
   } catch (err) {
     log.error('PUT /:id error:', err);
@@ -2472,6 +2513,49 @@ router.patch('/:id/check', (req, res) => {
     res.status(500).json({ error: 'Internal server error.', code: 500 });
   }
 });
+
+// --------------------------------------------------------
+// POST /api/v1/tasks/:id/accept  |  POST /api/v1/tasks/:id/decline
+// Wyznaczona osoba akceptuje albo odrzuca zadanie, które ktoś jej przypisał.
+// Zmienia tylko własny wiersz w task_assignments; autor dostaje powiadomienie.
+// Response: { data: { id, accept_state } }
+// --------------------------------------------------------
+function respondToAssignment(state) {
+  return (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const me = req.authUserId || req.session.userId;
+      const task = db.get().prepare('SELECT id, title, created_by FROM tasks WHERE id = ?').get(id);
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found.', code: 404, reason: 'tasks_task_not_found' });
+      }
+      const row = db.get().prepare('SELECT accept_state FROM task_assignments WHERE task_id = ? AND user_id = ?')
+        .get(id, me);
+      if (!row) return res.status(403).json({ error: 'This task is not assigned to you.', code: 403 });
+
+      db.get().prepare('UPDATE task_assignments SET accept_state = ? WHERE task_id = ? AND user_id = ?')
+        .run(state, id, me);
+      res.json({ data: { id, accept_state: state } });
+
+      if (row.accept_state !== state && task.created_by && task.created_by !== me) {
+        const who = db.get().prepare('SELECT display_name FROM users WHERE id = ?').get(me)?.display_name || '';
+        Promise.resolve()
+          .then(() => pushService.sendPushToUser(task.created_by, {
+            title: state === 'accepted' ? `${who} zaakceptował(a) zadanie` : `${who} odrzucił(a) zadanie`,
+            body: task.title,
+            url: `/tasks?task=${id}`,
+            tag: `task-assign-${id}`,
+          }))
+          .catch((e) => log.warn(`push do ${task.created_by}: ${e.message}`));
+      }
+    } catch (err) {
+      log.error(`POST /:id/${state} error:`, err);
+      res.status(500).json({ error: 'Internal server error.', code: 500 });
+    }
+  };
+}
+router.post('/:id/accept', respondToAssignment('accepted'));
+router.post('/:id/decline', respondToAssignment('declined'));
 
 // --------------------------------------------------------
 // DELETE /api/v1/tasks/:id

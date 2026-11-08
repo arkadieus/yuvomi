@@ -37,6 +37,7 @@ export async function render(container) {
   container.replaceChildren();
   container.insertAdjacentHTML('beforeend', `
     <main class="auth-page" id="main-content">
+      ${installSectionHtml()}
       ${authHeroHtml({ appName: storedAppName, tagline: t('setup.tagline') })}
       <div class="auth-card card card--padded">
         <form class="auth-form" id="setup-form" novalidate>
@@ -68,7 +69,6 @@ export async function render(container) {
             <span class="auth-btn__label">${esc(t('setup.submitButton'))}</span>
           </button>
         </form>
-        ${installSectionHtml()}
       </div>
       <p class="auth-version" id="setup-version"></p>
     </main>

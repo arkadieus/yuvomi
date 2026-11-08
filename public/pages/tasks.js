@@ -484,6 +484,33 @@ function renderForeignSeriesBadge(task) {
   return `<span class="due-date" role="img" aria-label="${label}" title="${label}"><i data-lucide="repeat" class="icon-sm" aria-hidden="true"></i></span>`;
 }
 
+/**
+ * Akceptacja zadania przez wyznaczoną osobę.
+ * Moje oczekujące → przyciski „Akceptuję / Odrzucam"; cudze → plakietka „Czeka na akceptację: Imię";
+ * odrzucone → czerwona plakietka. Stan 'accepted' nic nie rysuje.
+ */
+function renderAcceptState(task, { buttons = true } = {}) {
+  const people = task.assigned_users ?? [];
+  const me = state.currentUserId;
+  const mine = people.find((u) => Number(u.id) === Number(me));
+  const pad = 'display:inline-flex;align-items:center;gap:.25rem;padding:.1rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600';
+  if (mine?.accept_state === 'pending' && !buttons) {
+    return `<span style="${pad};background:#fff4d6;color:#7a5300">⏳ Czeka na Twoją akceptację (otwórz listę)</span>`;
+  }
+  if (mine?.accept_state === 'pending') {
+    return `<span class="task-accept" style="display:inline-flex;gap:.35rem;flex-wrap:wrap">
+      <button type="button" class="btn btn--primary" style="padding:.15rem .6rem;font-size:.8rem" data-action="accept-task" data-id="${task.id}">Akceptuję</button>
+      <button type="button" class="btn btn--secondary" style="padding:.15rem .6rem;font-size:.8rem" data-action="decline-task" data-id="${task.id}">Odrzucam</button>
+    </span>`;
+  }
+  const waiting = people.filter((u) => u.accept_state === 'pending').map((u) => u.display_name);
+  const declined = people.filter((u) => u.accept_state === 'declined').map((u) => u.display_name);
+  return [
+    waiting.length ? `<span style="${pad};background:#fff4d6;color:#7a5300" title="Wyznaczona osoba jeszcze nie zaakceptowała">⏳ Czeka na akceptację: ${esc(waiting.join(', '))}</span>` : '',
+    declined.length ? `<span style="${pad};background:#fde2e2;color:#8a1c1c" title="Wyznaczona osoba odrzuciła zadanie">✖ Odrzucone: ${esc(declined.join(', '))}</span>` : '',
+  ].join('');
+}
+
 function renderLockedBadge(task) {
   if (!task.locked) return '';
   const label = esc(t('tasks.lockedBadge'));
@@ -677,6 +704,7 @@ function renderTaskCard(task, opts = {}) {
             ${task.is_recurring ? '' : renderForeignSeriesBadge(task)}
             ${task.document_count > 0 ? `<span class="due-date task-card__docs" role="img" aria-label="${esc(t('tasks.documentsCount', { count: task.document_count }))}"><i data-lucide="paperclip" class="icon-sm" aria-hidden="true"></i></span>` : ''}
             ${renderLockedBadge(task)}
+            ${renderAcceptState(task)}
             ${renderVisibilityBadge(task.visibility)}
             ${showCategory && task.category !== FALLBACK_CATEGORY ? `<span class="due-date task-card__category">${esc(catLabel(task.category))}</span>` : ''}
             ${renderTagBadges(task.tags, ROW_TAG_BADGES_VISIBLE, task.priority)}
@@ -3467,6 +3495,7 @@ function renderKanbanCard(task) {
         ${renderPriorityBadge(task.priority)}
         ${due ? `<span class="due-date ${due.cls}"><i data-lucide="clock" class="icon-sm" aria-hidden="true"></i> ${due.label}</span>` : ''}
         ${renderLockedBadge(task)}
+        ${renderAcceptState(task, { buttons: false })}
         ${renderTagBadges(task.tags, TAG_BADGES_VISIBLE, task.priority)}
       </div>
       <div class="kanban-card__footer">
@@ -6231,6 +6260,20 @@ function wireTaskList(container) {
     }
 
     if (action === 'edit-task') await openTaskSheet(id, container);
+
+    if (action === 'accept-task' || action === 'decline-task') {
+      const accept = action === 'accept-task';
+      target.disabled = true;
+      try {
+        await api.post(`/tasks/${id}/${accept ? 'accept' : 'decline'}`, {});
+        window.yuvomi.showToast(accept ? 'Zadanie zaakceptowane.' : 'Zadanie odrzucone — autor dostanie powiadomienie.', 'success');
+        await loadTasks(container);
+      } catch (err) {
+        target.disabled = false;
+        window.yuvomi.showToast(errorSentence(err), 'danger');
+      }
+      return;
+    }
 
     if (action === 'archive-task' || action === 'unarchive-task') {
       const archive = action === 'archive-task';

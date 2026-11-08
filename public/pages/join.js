@@ -27,6 +27,7 @@ export async function render(container) {
   container.replaceChildren();
   container.insertAdjacentHTML('beforeend', `
     <main class="auth-page" id="main-content">
+      ${installSectionHtml()}
       ${authHeroHtml({ heading: false })}
       <div class="auth-card card card--padded">
         <h1 class="auth-card__title" id="join-title">${esc(t('join.title'))}</h1>
@@ -63,7 +64,6 @@ export async function render(container) {
         </form>
         <a class="btn btn--primary auth-form__submit" id="join-to-login" href="/login" data-link hidden>${esc(t('join.toLogin'))}</a>
         <p class="auth-form__forgot" id="join-login"><a href="/login" data-link>${esc(t('forgotPassword.backToLogin'))}</a></p>
-        ${installSectionHtml()}
         <a id="join-after-install" class="btn btn--primary auth-form__submit" href="/login" data-link hidden style="margin-top:.5rem">${esc(t('join.toLogin'))}</a>
       </div>
     </main>

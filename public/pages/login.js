@@ -53,6 +53,7 @@ export async function render(container) {
   container.replaceChildren();
   container.insertAdjacentHTML('beforeend', `
     <main class="auth-page" id="main-content">
+      ${installSectionHtml()}
       ${authHeroHtml({ appName: storedAppName, tagline: t('login.tagline') })}
       <div class="auth-card card card--padded">
         ${!passwordLoginEnabled ? `
@@ -110,7 +111,6 @@ export async function render(container) {
             <a href="/forgot-password" data-link>${esc(t('login.forgotPassword'))}</a>
           </p>
         </form>
-        ${installSectionHtml()}
       </div>
       <p class="auth-version" id="auth-version"></p>
     </main>

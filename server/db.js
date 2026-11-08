@@ -12041,6 +12041,19 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    version: 285,
+    description: 'task_assignments: accept_state (pending/accepted/declined) — assignee must accept a task',
+    up(database) {
+      const cols = database.prepare('PRAGMA table_info(task_assignments)').all();
+      if (!cols.some((c) => c.name === 'accept_state')) {
+        // Domyślnie 'accepted': istniejące zadania i wszystkie ścieżki spoza formularza
+        // (serie, CalDAV, sprzątanie) zachowują się jak dotąd. Czekanie na akceptację
+        // ustawia tylko POST/PUT zadania, gdy wyznacza je ktoś inny niż wykonawca.
+        database.exec("ALTER TABLE task_assignments ADD COLUMN accept_state TEXT NOT NULL DEFAULT 'accepted'");
+      }
+    },
+  },
 ];
 
 /**

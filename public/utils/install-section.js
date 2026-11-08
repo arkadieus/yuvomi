@@ -8,17 +8,22 @@ import { esc } from '/utils/html.js';
 import { getPwaInstallState, onPwaInstallStateChanged, promptPwaInstall } from '/utils/pwa-install.js';
 
 const SHARE_ICON = "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23007AFF%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8%22/><polyline points=%2216 6 12 2 8 6%22/><line x1=%2212%22 y1=%222%22 x2=%2212%22 y2=%2215%22/></svg>') center/contain no-repeat";
-const HINT = 'font-size:.875rem;color:var(--color-text-secondary,#666);margin:0 0 .75rem';
+// Baner na SAMEJ GÓRZE stron logowania/rejestracji: ma być nie do przeoczenia.
+// Kolory celowo stałe (ciemny granat + żółty przycisk) — czytelne w jasnym i ciemnym motywie.
+const BANNER = 'width:100%;max-width:28rem;box-sizing:border-box;margin:0 auto 1rem;padding:1rem 1.1rem;border-radius:14px;background:#14213d;color:#fff;border:3px solid #fca311;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+const BANNER_TEXT = 'margin:0 0 .75rem;font-size:.95rem;line-height:1.4;color:#e8ecf5';
+const BANNER_BTN = 'width:100%;padding:.85rem 1rem;font-size:1.1rem;font-weight:800;border:0;border-radius:10px;background:#fca311;color:#14213d;cursor:pointer;text-transform:uppercase;letter-spacing:.03em';
 
 export function installSectionHtml() {
   return `
-        <div data-install-section style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--color-border,#e5e3dd)">
-          <p style="${HINT}">${esc(t('install.title'))}</p>
-          <div data-install-ios hidden style="${HINT}">
-            ${esc(t('install.iosTip1'))}<span aria-label="udostępnij" style="display:inline-block;vertical-align:middle;width:1.1em;height:1.1em;background:${SHARE_ICON}"></span>${esc(t('install.iosTip2'))}
+        <div data-install-section role="region" aria-label="Zainstaluj aplikację" style="${BANNER}">
+          <p style="margin:0 0 .35rem;font-size:1.25rem;font-weight:800;letter-spacing:.02em;color:#fca311">📲 ZAINSTALUJ APLIKACJĘ</p>
+          <p style="${BANNER_TEXT}">Dodaj ${esc(t('install.title').replace(/^Zainstaluj\s+/i, ''))} na ekran główny telefonu — działa jak zwykła aplikacja, otwiera się jednym kliknięciem i dostajesz powiadomienia.</p>
+          <div data-install-ios hidden style="${BANNER_TEXT}">
+            <strong>iPhone / iPad:</strong> ${esc(t('install.iosTip1'))}<span aria-label="udostępnij" style="display:inline-block;vertical-align:middle;width:1.2em;height:1.2em;background:${SHARE_ICON}"></span>${esc(t('install.iosTip2'))}
           </div>
-          <p data-install-manual hidden style="${HINT}">${esc(t('settings.pwaInstallUnavailable'))}</p>
-          <button type="button" data-install-btn class="btn btn--secondary" style="width:100%" hidden>${esc(t('install.installButton'))}</button>
+          <p data-install-manual hidden style="${BANNER_TEXT}"><strong>Jak zainstalować:</strong> ${esc(t('settings.pwaInstallUnavailable'))}</p>
+          <button type="button" data-install-btn style="${BANNER_BTN}" hidden>⬇ ${esc(t('install.installButton'))}</button>
         </div>`;
 }
 

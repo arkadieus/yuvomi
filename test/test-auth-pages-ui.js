@@ -55,7 +55,7 @@ test('R16: jede Seite vor der Anmeldung traegt denselben Kopf mit der Marke', ()
   for (const page of AUTH_FORMS) {
     const src = read(`../public/pages/${page}.js`);
     const mains = (src.match(/<main class="auth-page" id="main-content">/g) ?? []).length;
-    const heroes = (src.match(/<main class="auth-page" id="main-content">\s*\$\{authHeroHtml\(/g) ?? []).length;
+    const heroes = (src.match(/<main class="auth-page" id="main-content">\s*(?:\$\{installSectionHtml\(\)\}\s*)?\$\{authHeroHtml\(/g) ?? []).length;
     assert.ok(mains >= 1, `${page}.js rendert keine Auth-Seite mehr - Test veraltet`);
     assert.equal(heroes, mains, `${page}.js: jede gerenderte Seite beginnt mit dem Kopf (${heroes} von ${mains})`);
     assert.doesNotMatch(src, /class="auth-hero"/, `${page}.js baut keinen eigenen Kopf`);
