@@ -1,0 +1,18 @@
+name: Keep alive
+
+# Darmowy Render usypia usługę po 15 min bez ruchu, a wtedy nie działają przypomnienia push.
+# Ten workflow odwiedza aplikację co 10 minut.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping aplikacji
+        run: curl -fsS --retry 3 --retry-delay 10 --max-time 90 https://yuvomi-kpbe.onrender.com/health
