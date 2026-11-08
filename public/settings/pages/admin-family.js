@@ -1024,7 +1024,7 @@ async function wireGuestLink(container) {
         toast('Link wyłączony.');
       }
     } catch (err) {
-      toast(errorSentence(err), 'danger');
+      toast(`Link gościa: ${err?.status ? `błąd ${err.status}` : 'brak połączenia'}${err?.message ? ` — ${err.message}` : ''}`, 'danger');
     }
   });
 }
