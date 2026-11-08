@@ -59,7 +59,7 @@ import { accountIdsByEmail, emailMatchKey } from './utils/email-match.js';
 import {
   resolvePermissions, buildSessionModuleAccess, clientPermissions,
   invitePresetPermissions, isValidInvitePreset, writeSubjectPermissions,
-  applyChildStartPermissions, INVITE_PRESET_DEFAULT,
+  applyChildStartPermissions, INVITE_PRESET_DEFAULT, PERMISSION_MODULES,
   userForRequest,
 } from './permissions.js';
 import { isAdminRequest, requireAdmin } from './middleware/require-admin.js';
@@ -2260,6 +2260,44 @@ export function buildInviteRoutes(targetRouter, {
     }
   });
 
+  // Uniwersalny link gościa (jeden, wielokrotnego użytku). Konto gościa startuje bez
+  // dostępu do żadnego modułu; administrator nadaje uprawnienia później.
+  // PRZED /invites/:id, inaczej „guest-link” trafiłby w :id.
+  const guestLinkPayload = () => {
+    const g = inviteService.getGuestLink();
+    return { data: { token: g ? g.token : null, created_at: g ? g.createdAt : null } };
+  };
+  targetRouter.get('/invites/guest-link', requireAuth, requireAdmin, (_req, res) => {
+    try { res.json(guestLinkPayload()); }
+    catch (err) {
+      log.error('Guest link read error:', err.message);
+      res.status(500).json({ error: 'Internal server error.', code: 500 });
+    }
+  });
+  targetRouter.post('/invites/guest-link', requireAuth, requireAdmin, csrfMiddleware, (req, res) => {
+    try {
+      const modules = {};
+      for (const m of PERMISSION_MODULES) modules[m.key] = 'none';
+      inviteService.createGuestLink({
+        permissions: JSON.stringify({ modules, widgets: {} }),
+        createdBy: req.authUserId,
+      });
+      res.status(201).json(guestLinkPayload());
+    } catch (err) {
+      log.error('Guest link create error:', err.message);
+      res.status(500).json({ error: 'Internal server error.', code: 500 });
+    }
+  });
+  targetRouter.delete('/invites/guest-link', requireAuth, requireAdmin, csrfMiddleware, (_req, res) => {
+    try {
+      inviteService.revokeGuestLink();
+      res.json(guestLinkPayload());
+    } catch (err) {
+      log.error('Guest link revoke error:', err.message);
+      res.status(500).json({ error: 'Internal server error.', code: 500 });
+    }
+  });
+
   targetRouter.delete('/invites/:id', requireAuth, requireAdmin, csrfMiddleware, (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
@@ -2294,6 +2332,7 @@ export function buildInviteRoutes(targetRouter, {
         // haette sich ein Passwort ausgedacht, mit dem er sich nie anmeldet.
         data: {
           valid: true,
+          guest: invite.reusable === 1,
           display_name: invite.display_name,
           username: invite.username,
           invited_by: inviter?.display_name || null,
@@ -2411,7 +2450,8 @@ export function buildInviteRoutes(targetRouter, {
           });
           // In derselben Transaktion: von zwei parallelen Einlösungen desselben
           // Tokens sieht nur eine changes === 1, die andere rollt zurück.
-          if (inviteService.markAccepted(token, newUserId) === 0) throw ACCEPT_LOST;
+          // Link gościa jest wielokrotnego użytku i nie jest zużywany.
+          if (!invite.reusable && inviteService.markAccepted(token, newUserId) === 0) throw ACCEPT_LOST;
         })();
       } catch (txErr) {
         if (txErr === ACCEPT_LOST) {

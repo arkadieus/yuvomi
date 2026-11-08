@@ -512,6 +512,9 @@ const auth = {
   createInvite: (data) => api.post('/auth/invites', data),
   getInvites: () => api.get('/auth/invites'),
   revokeInvite: (id) => api.delete(`/auth/invites/${id}`),
+  getGuestLink: () => api.get('/auth/invites/guest-link'),
+  createGuestLink: () => api.post('/auth/invites/guest-link', {}),
+  revokeGuestLink: () => api.delete('/auth/invites/guest-link'),
   previewInvite: (token) => api.get(`/auth/invites/preview?token=${encodeURIComponent(token)}`),
   acceptInvite: (data) => api.post('/auth/invites/accept', data),
 };

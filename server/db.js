@@ -12028,6 +12028,19 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    version: 284,
+    description: 'invites: reusable guest link (token kept for the admin to copy)',
+    up(database) {
+      const cols = database.prepare('PRAGMA table_info(invites)').all();
+      if (!cols.some((c) => c.name === 'reusable')) {
+        database.exec('ALTER TABLE invites ADD COLUMN reusable INTEGER NOT NULL DEFAULT 0');
+      }
+      if (!cols.some((c) => c.name === 'token_plain')) {
+        database.exec('ALTER TABLE invites ADD COLUMN token_plain TEXT');
+      }
+    },
+  },
 ];
 
 /**

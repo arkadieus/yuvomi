@@ -17,7 +17,7 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // (#869). Sie enthalten keine Geheimnisse, nur Modulschlüssel.
 const PUBLIC_COLUMNS = `id, email, username, display_name, role, family_role,
   permissions, created_by, expires_at, accepted_at, accepted_user_id, revoked_at,
-  created_at`;
+  created_at, reusable`;
 
 export function createInviteService({ db, now = () => Date.now() } = {}) {
   const getDb = () => (db || dbModule.get());
@@ -99,7 +99,7 @@ export function createInviteService({ db, now = () => Date.now() } = {}) {
   function listOpen() {
     return getDb().prepare(`
       SELECT ${PUBLIC_COLUMNS} FROM invites
-      WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?
+      WHERE accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ? AND reusable = 0
       ORDER BY created_at DESC, id DESC
     `).all(now());
   }
@@ -113,13 +113,47 @@ export function createInviteService({ db, now = () => Date.now() } = {}) {
    */
   function cleanupExpired() {
     const info = getDb().prepare(
-      'DELETE FROM invites WHERE expires_at <= ? AND accepted_at IS NULL AND revoked_at IS NULL'
+      'DELETE FROM invites WHERE expires_at <= ? AND accepted_at IS NULL AND revoked_at IS NULL AND reusable = 0'
     ).run(now());
     if (info.changes) log.info(`Cleaned up ${info.changes} expired invite(s)`);
     return info.changes;
   }
 
-  return { createInvite, verifyToken, markAccepted, revoke, listOpen, cleanupExpired };
+  /**
+   * UNIWERSALNY LINK GOŚCIA: jedna wielokrotnego użytku, aktywna pozycja naraz.
+   * Token trzymamy jawnie (`token_plain`), żeby administrator mógł go w każdej
+   * chwili skopiować; to wspólny sekret tej jednej pozycji, nie hasło nikogo.
+   * Nie wygasa (10 lat) i nie jest zużywany przy rejestracji.
+   */
+  function getGuestLink() {
+    const row = getDb().prepare(`
+      SELECT id, token_plain, created_at FROM invites
+      WHERE reusable = 1 AND revoked_at IS NULL AND token_plain IS NOT NULL
+      ORDER BY id DESC LIMIT 1
+    `).get();
+    return row ? { id: row.id, token: row.token_plain, createdAt: row.created_at } : null;
+  }
+
+  function createGuestLink({ permissions = null, createdBy = null } = {}) {
+    revokeGuestLink();
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = now() + 10 * 365 * 24 * 60 * 60 * 1000;
+    const info = getDb().prepare(`
+      INSERT INTO invites (token_hash, role, family_role, permissions, created_by,
+                           expires_at, reusable, token_plain)
+      VALUES (?, 'member', 'other', ?, ?, ?, 1, ?)
+    `).run(hash(token), permissions, createdBy, expiresAt, token);
+    return { id: Number(info.lastInsertRowid), token };
+  }
+
+  function revokeGuestLink() {
+    return getDb().prepare(
+      'UPDATE invites SET revoked_at = ?, token_plain = NULL WHERE reusable = 1 AND revoked_at IS NULL'
+    ).run(stamp()).changes;
+  }
+
+  return { createInvite, verifyToken, markAccepted, revoke, listOpen, cleanupExpired,
+    getGuestLink, createGuestLink, revokeGuestLink };
 }
 
 export const inviteService = createInviteService();

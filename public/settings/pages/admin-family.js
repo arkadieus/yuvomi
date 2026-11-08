@@ -425,6 +425,11 @@ function renderPage(container) {
         <div class="settings-member-actions">
           <button class="btn btn--primary settings-add-btn" id="add-invite-btn" hidden><i data-lucide="mail-plus" aria-hidden="true"></i>${t('settings.invites.add')}</button>
         </div>
+        <div id="guest-link-block" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--color-border,#e5e3dd)">
+          <h4 class="settings-card__title" style="font-size:1rem">Uniwersalny link dla gościa</h4>
+          <p class="form-hint">Jeden link do skopiowania i wysłania komukolwiek. Każdy, kto go otworzy, zakłada własne konto gościa. Konto startuje bez dostępu do modułów, a uprawnienia nadajesz później w liście członków. Link działa wielokrotnie i nie wygasa, dopóki go nie wyłączysz lub nie wygenerujesz nowego.</p>
+          <div id="guest-link-body"></div>
+        </div>
       </div>
 
       <!-- Zeilen im Traeger (R17, E9): der Schalter, darunter als zweite Zeile
@@ -960,6 +965,68 @@ async function loadInvites(container) {
 
   renderInviteList(container, invites);
   bindInviteEvents(container, invites);
+  wireGuestLink(container);
+}
+
+// Uniwersalny link gościa: jedna pozycja do skopiowania (wielokrotnego użytku).
+async function wireGuestLink(container) {
+  const body = container.querySelector('#guest-link-body');
+  if (!body || body.dataset.wired) return;
+  body.dataset.wired = '1';
+  const toast = (msg, kind = 'default') => window.yuvomi?.showToast(msg, kind);
+
+  const draw = (token) => {
+    body.replaceChildren();
+    if (!token) {
+      body.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn--primary" data-gl="create">Utwórz link dla gościa</button>');
+    } else {
+      const url = `${location.origin}/join?token=${encodeURIComponent(token)}`;
+      body.insertAdjacentHTML('beforeend', `
+        <div class="form-group"><input class="input" type="text" readonly id="guest-link-url" aria-label="Link dla gościa" value="${esc(url)}" /></div>
+        <p class="form-hint" id="guest-link-status" role="status"></p>
+        <div class="settings-member-actions" style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn--primary" data-gl="copy">Kopiuj link</button>
+          <button type="button" class="btn btn--secondary" data-gl="regen">Wygeneruj nowy</button>
+          <button type="button" class="btn btn--secondary" data-gl="off">Wyłącz link</button>
+        </div>`);
+    }
+  };
+
+  try { draw((await auth.getGuestLink())?.data?.token ?? null); }
+  catch { body.textContent = 'Nie udało się wczytać linku dla gościa.'; return; }
+
+  body.addEventListener('click', async (event) => {
+    const btn = event.target.closest('[data-gl]');
+    if (!btn) return;
+    const act = btn.dataset.gl;
+    try {
+      if (act === 'create') {
+        draw((await auth.createGuestLink())?.data?.token ?? null);
+      } else if (act === 'copy') {
+        const input = body.querySelector('#guest-link-url');
+        const ok = input ? await copyInviteLink(input) : false;
+        const st = body.querySelector('#guest-link-status');
+        if (st) st.textContent = ok ? 'Skopiowano. Wyślij link gościowi.' : 'Nie udało się skopiować. Zaznacz link i skopiuj ręcznie.';
+      } else if (act === 'regen') {
+        if (!await confirmModal('Wygenerować nowy link? Dotychczasowy link przestanie działać.', {
+          danger: true, confirmLabel: 'Wygeneruj nowy',
+          detail: 'Konta, które już założono przez stary link, zostają bez zmian.',
+        })) return;
+        draw((await auth.createGuestLink())?.data?.token ?? null);
+        toast('Nowy link gotowy.');
+      } else if (act === 'off') {
+        if (!await confirmModal('Wyłączyć link dla gościa? Nikt nie założy już konta przez ten link.', {
+          danger: true, confirmLabel: 'Wyłącz link',
+          detail: 'Konta, które już założono, zostają bez zmian.',
+        })) return;
+        await auth.revokeGuestLink();
+        draw(null);
+        toast('Link wyłączony.');
+      }
+    } catch (err) {
+      toast(errorSentence(err), 'danger');
+    }
+  });
 }
 
 function bindDeleteButtons(container, currentUser, users) {

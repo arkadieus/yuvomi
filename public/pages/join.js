@@ -150,7 +150,10 @@ export async function render(container) {
   // wurdest zu Yuvomi eingeladen" sagte weder wer noch wohin - und trug den
   // Produktnamen auch dort, wo ein Haushalt seinen eigenen Namen gesetzt hat.
   // Jetzt Person und Name der App, wie ihn die Marke darueber zeigt.
-  if (preview.invited_by) {
+  if (preview.guest) {
+    container.querySelector('#join-title').textContent = 'Rejestracja gościa';
+    intro.textContent = 'Załóż konto gościa. Wybierz nazwę użytkownika i hasło. Uprawnienia nada Ci administrator po rejestracji.';
+  } else if (preview.invited_by) {
     intro.textContent = t('join.introNamed', { name: preview.invited_by, app: getStoredAppName() });
   }
 
