@@ -8,4 +8,4 @@ let key = process.env.SUPABASE_SERVICE_KEY;
 if (!key && process.env.SUPABASE_SERVICE_KEY_FILE) {
   try { key = readFileSync(process.env.SUPABASE_SERVICE_KEY_FILE, 'utf8').trim(); } catch { /* brak pliku */ }
 }
-if (key) process.stdout.write(createHmac('sha256', key).update('yuvomi-db-encryption-v1').digest('hex'));
+if (key) process.stdout.write(createHmac('sha256', key).update(process.argv[2] === 'session' ? 'yuvomi-session-secret-v1' : 'yuvomi-db-encryption-v1').digest('hex'));

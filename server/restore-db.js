@@ -1,7 +1,8 @@
 /**
  * Pre-startup DB restore from Supabase.
  * Run this BEFORE server/index.js so db.init() opens the correct file.
- * Always exits 0 — a restore failure means "start fresh", never "abort".
+ * Exits 0 when there is no backup / backup is unreadable (start fresh).
+ * Exits 1 when Supabase is unreachable, so an empty DB never overwrites a good backup.
  */
 
 import { writeFileSync, renameSync, unlinkSync, mkdirSync, readFileSync } from 'node:fs';
@@ -51,16 +52,33 @@ try {
 
   const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${FILE_NAME}`;
   log('Downloading backup from Supabase...');
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
-  });
+  // Błąd przejściowy (sieć tuż po wybudzeniu Rendera, 5xx) NIE może oznaczać „start od zera”:
+  // pusta baza zostałaby po minucie wysłana na Supabase i nadpisałaby dobrą kopię (znikają konta).
+  // Dlatego ponawiamy, a po wyczerpaniu prób kończymy z błędem (Render zrestartuje kontener).
+  let res = null;
+  let lastErr = '';
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    try {
+      res = await fetch(url, {
+        headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
+        signal: AbortSignal.timeout(60000),
+      });
+      if (res.ok || res.status === 404 || res.status === 400) break;
+      lastErr = `HTTP ${res.status}`;
+    } catch (e) {
+      lastErr = e.message;
+    }
+    res = null;
+    log(`Attempt ${attempt}/8 failed (${lastErr}) — retrying`);
+    await new Promise((r) => setTimeout(r, Math.min(2000 * attempt, 12000)));
+  }
 
+  if (!res) {
+    log(`Supabase unreachable (${lastErr}) — refusing to start with empty DB, exiting 1`);
+    process.exit(1);
+  }
   if (res.status === 404 || res.status === 400) {
     log('No backup in Supabase — starting fresh');
-    process.exit(0);
-  }
-  if (!res.ok) {
-    log(`HTTP ${res.status} from Supabase — starting fresh`);
     process.exit(0);
   }
 
@@ -101,6 +119,6 @@ try {
 
   process.exit(0);
 } catch (e) {
-  log(`Unexpected error: ${e.message} — starting fresh`);
-  process.exit(0);
+  log(`Unexpected error: ${e.message} — refusing to start with empty DB, exiting 1`);
+  process.exit(1);
 }
