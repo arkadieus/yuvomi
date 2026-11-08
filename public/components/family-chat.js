@@ -23,8 +23,14 @@ const STYLE = `
     border: 1px solid var(--color-border, #ddd); border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.25);
     font: 14px/1.4 system-ui, sans-serif; }
   .fc-head { display: flex; gap: 8px; align-items: center; padding: 10px; border-bottom: 1px solid var(--color-border, #ddd); }
-  .fc-head select { flex: 1; min-width: 0; font: inherit; padding: 7px; border-radius: 8px;
-    border: 1px solid var(--color-border, #ccc); background: var(--color-surface, #fff); color: inherit; }
+  .fc-chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
+  .fc-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; font: inherit; padding: 6px 11px;
+    border-radius: 999px; cursor: pointer; white-space: nowrap; color: inherit;
+    border: 1px solid var(--color-border, #ccc); background: var(--color-surface, #fff); }
+  .fc-chip.active { background: var(--color-primary, #4f46e5); color: #fff; border-color: transparent; }
+  .fc-chip.unread { font-weight: 700; border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.25); }
+  .fc-chip .n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #ef4444; color: #fff;
+    font: 700 12px/20px system-ui, sans-serif; text-align: center; }
   .fc-x { background: none; border: none; font-size: 22px; line-height: 1; cursor: pointer; color: inherit; padding: 4px 8px; }
   .fc-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;
     overscroll-behavior: contain; }
@@ -83,7 +89,8 @@ class FamilyChat extends HTMLElement {
     this._btn.insertAdjacentHTML('afterbegin', ICON);
     this._btn.append(this._badge);
 
-    this._select = el('select', { 'aria-label': 'Rozmowa', onchange: () => this._switch(this._select.value) });
+    this._unread = {};
+    this._chips = el('div', { class: 'fc-chips', role: 'tablist', 'aria-label': 'Rozmowy' });
     this._list = el('div', { class: 'fc-list', 'aria-live': 'polite' });
     this._err = el('div', { class: 'fc-err', hidden: '' });
     this._input = el('textarea', { rows: '1', maxlength: '2000', placeholder: 'Napisz wiadomość…', 'aria-label': 'Wiadomość' });
@@ -92,7 +99,7 @@ class FamilyChat extends HTMLElement {
     });
     this._sendBtn = el('button', { class: 'fc-send', type: 'button', text: 'Wyślij', onclick: () => this._send() });
     this._panel = el('div', { class: 'fc-panel', role: 'dialog', 'aria-label': 'Czat rodzinny', hidden: '' },
-      el('div', { class: 'fc-head' }, this._select,
+      el('div', { class: 'fc-head' }, this._chips,
         el('button', { class: 'fc-x', type: 'button', 'aria-label': 'Zamknij', text: '×', onclick: () => this._toggle(false) })),
       this._list, this._err,
       el('div', { class: 'fc-form' }, this._input, this._sendBtn));
@@ -167,6 +174,12 @@ class FamilyChat extends HTMLElement {
     this._panel.hidden = !open;
     if (!open) return;
     await this._loadMembers();
+    // Przy otwarciu od razu pokaż rozmowę, w której czeka wiadomość (jeśli bieżąca nie ma żadnej).
+    if (!(Number(this._unread[this._key()]) > 0)) {
+      const first = Object.entries(this._unread).find(([, n]) => Number(n) > 0)?.[0];
+      if (first) this._thread = first === 'group' ? 'group' : first.slice(1);
+    }
+    this._renderChips();
     this._lastId = 0;
     this._list.replaceChildren();
     await this._poll(true);
@@ -178,15 +191,31 @@ class FamilyChat extends HTMLElement {
       const res = await api.get('/chat/members');
       this._members = res?.data ?? [];
     } catch { /* zostaje poprzednia lista */ }
-    const keep = this._thread;
-    this._select.replaceChildren(el('option', { value: 'group', text: 'Wszyscy (rodzina)' }));
-    for (const m of this._members) this._select.append(el('option', { value: String(m.id), text: m.display_name }));
-    this._select.value = [...this._select.options].some((o) => o.value === keep) ? keep : 'group';
-    this._thread = this._select.value;
+    this._renderChips();
+  }
+
+  /** Rozmowy jako przyciski z czerwoną liczbą nieprzeczytanych; te z wiadomościami są na początku. */
+  _renderChips() {
+    const threads = [{ id: 'group', key: 'group', name: 'Wszyscy (rodzina)' },
+      ...this._members.map((m) => ({ id: String(m.id), key: `u${m.id}`, name: m.display_name }))];
+    const count = (t) => (t.id === this._thread && this._open ? 0 : Number(this._unread[t.key]) || 0);
+    threads.sort((x, y) => (count(y) > 0) - (count(x) > 0));
+    this._chips.replaceChildren(...threads.map((t) => {
+      const n = count(t);
+      return el('button', {
+        type: 'button',
+        class: `fc-chip${t.id === this._thread ? ' active' : ''}${n ? ' unread' : ''}`,
+        role: 'tab', 'aria-selected': String(t.id === this._thread),
+        'aria-label': n ? `${t.name}, nieprzeczytane: ${n}` : t.name,
+        onclick: () => this._switch(t.id),
+      }, el('span', { text: t.name }), n ? el('span', { class: 'n', text: n > 99 ? '99+' : String(n) }) : null);
+    }));
   }
 
   _switch(value) {
     this._thread = value;
+    this._unread[this._key()] = 0;
+    this._renderChips();
     this._lastId = 0;
     this._list.replaceChildren();
     this._poll(true);
@@ -199,6 +228,10 @@ class FamilyChat extends HTMLElement {
       const res = await api.get('/chat/summary');
       this._btn.hidden = false;
       const total = Number(res?.data?.total) || 0;
+      const next = res?.data?.unread || {};
+      const changed = JSON.stringify(next) !== JSON.stringify(this._unread);
+      this._unread = next;
+      if (changed) this._renderChips(); // nie przerysowuj bez potrzeby (zachowuje przewinięcie listy)
       // Otwarta rozmowa jest czytana na bieżąco, więc nie liczy się jako nieprzeczytana.
       this._badge.hidden = total === 0 || (this._open && total === (Number(res?.data?.unread?.[this._key()]) || 0));
       this._badge.textContent = total > 99 ? '99+' : String(total);
