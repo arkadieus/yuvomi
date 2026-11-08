@@ -1,7 +1,7 @@
 /**
  * Stała sekcja „Zainstaluj aplikację” dla stron przed zalogowaniem (rejestracja, zaproszenie, logowanie).
  * Zawsze widoczna (poza zainstalowaną aplikacją); gdy przeglądarka nie daje instalacji jednym kliknięciem,
- * przycisk pokazuje instrukcję ręczną.
+ * instrukcja ręczna jest pokazywana od razu.
  */
 import { t } from '/i18n.js';
 import { esc } from '/utils/html.js';
@@ -17,8 +17,8 @@ export function installSectionHtml() {
           <div data-install-ios hidden style="${HINT}">
             ${esc(t('install.iosTip1'))}<span aria-label="udostępnij" style="display:inline-block;vertical-align:middle;width:1.1em;height:1.1em;background:${SHARE_ICON}"></span>${esc(t('install.iosTip2'))}
           </div>
-          <p data-install-manual hidden style="${HINT}">W menu przeglądarki (⋮ lub Udostępnij) wybierz „Zainstaluj aplikację” albo „Dodaj do ekranu głównego”.</p>
-          <button type="button" data-install-btn class="btn btn--secondary" style="width:100%">${esc(t('install.installButton'))}</button>
+          <p data-install-manual hidden style="${HINT}">${esc(t('settings.pwaInstallUnavailable'))}</p>
+          <button type="button" data-install-btn class="btn btn--secondary" style="width:100%" hidden>${esc(t('install.installButton'))}</button>
         </div>`;
 }
 
@@ -35,21 +35,35 @@ export function wireInstallSection(container, { onInstalled } = {}) {
   const btn = section.querySelector('[data-install-btn]');
   let done = false;
 
-  const unsub = onPwaInstallStateChanged((s) => {
+  const applyState = (s) => {
     if (s.installed) {
       if (done) { unsub?.(); onInstalled?.(); return; }
       section.hidden = true;
       return;
     }
     section.hidden = false;
+    // iOS: instrukcja tekstowa, bez przycisku
     if (iosHint) iosHint.hidden = !s.ios;
-    if (manualHint && s.canPrompt) manualHint.hidden = true;
-  });
+    // Instrukcja ręczna: pokaż gdy przeglądarka nie obsługuje instalacji
+    // jednym kliknięciem (nie iOS, nie canPrompt).
+    if (manualHint) manualHint.hidden = s.ios || s.canPrompt;
+    // Przycisk: tylko gdy jest co klikać (canPrompt). Na iOS instrukcja
+    // zastępuje przycisk. Gdy brak obu — ukryj przycisk zamiast pokazywać
+    // martwy element bez efektu.
+    if (btn) btn.hidden = !s.canPrompt;
+  };
+
+  const unsub = onPwaInstallStateChanged(applyState);
 
   btn?.addEventListener('click', async () => {
     let outcome;
     try { ({ outcome } = await promptPwaInstall()); } catch { outcome = 'unavailable'; }
-    if (outcome === 'unavailable' && manualHint) manualHint.hidden = false;
+    if (outcome === 'unavailable') {
+      // canPrompt przepadł (odrzucono lub zniknął) — pokaż instrukcję ręczną,
+      // ukryj przycisk żeby nie kusić do ponownego kliknięcia.
+      if (manualHint) manualHint.hidden = false;
+      if (btn) btn.hidden = true;
+    }
     if (outcome === 'ios' && iosHint) iosHint.hidden = false;
     if (outcome === 'accepted' && done) onInstalled?.();
   });
