@@ -75,9 +75,11 @@ try {
     const encKey = resolveEncKey();
     const testDb = new Database(staging);
     if (encKey) {
-      testDb.pragma(`key='${encKey}'`);
-      testDb.pragma('user_version'); // throws "file is not a database" if key is wrong
+      // Dokładnie tak jak server/db.js (applyKeyBytes): cipher sqlcipher + klucz jako hex bajtów UTF-8.
+      testDb.pragma("cipher = 'sqlcipher'");
+      testDb.pragma(`key="x'${Buffer.from(encKey, 'utf8').toString('hex')}'"`);
     }
+    testDb.prepare('SELECT count(*) FROM sqlite_master').get(); // rzuca "file is not a database" przy złym kluczu
     testDb.close();
 
     renameSync(staging, DB_PATH);
@@ -85,6 +87,16 @@ try {
   } catch (keyErr) {
     log(`Key validation failed: ${keyErr.message} — discarding backup, starting fresh`);
     try { unlinkSync(staging); } catch { /* ignore */ }
+    // Nie tracimy nieczytelnego backupu: kolejny upload nadpisze yuvomi.db, więc zachowujemy kopię.
+    try {
+      const keepName = `${FILE_NAME}.unreadable-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${keepName}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY, 'Content-Type': 'application/octet-stream', 'x-upsert': 'true' },
+        body: buffer,
+      });
+      log(up.ok ? `Saved unreadable backup as ${keepName}` : `Could not save unreadable backup (HTTP ${up.status})`);
+    } catch (e) { log(`Could not save unreadable backup: ${e.message}`); }
   }
 
   process.exit(0);
