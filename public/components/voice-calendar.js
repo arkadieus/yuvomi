@@ -3,6 +3,8 @@
  * Używa Web Speech API (przeglądarkowe, bezpłatne) + polski parser dat
  */
 
+import { api } from '/api.js';
+
 const STYLE = `
   :host {
     position: fixed;
@@ -200,6 +202,9 @@ class VoiceCalendar extends HTMLElement {
         'no-speech': 'Nie usłyszałem nic. Spróbuj jeszcze raz.',
         'not-allowed': 'Brak dostępu do mikrofonu. Zezwól w ustawieniach przeglądarki.',
         'network': 'Błąd sieci. Sprawdź połączenie.',
+        'service-not-allowed': 'Ta przeglądarka nie udostępnia rozpoznawania mowy w zainstalowanej aplikacji. Otwórz Dworak Planer w Chrome (Android) lub Safari.',
+        'audio-capture': 'Nie znaleziono mikrofonu.',
+        'language-not-supported': 'Język polski nie jest obsługiwany przez rozpoznawanie mowy w tej przeglądarce.',
       };
       this._showToast(msgs[e.error] || `Błąd: ${e.error}`, 'error');
     };
@@ -228,20 +233,16 @@ class VoiceCalendar extends HTMLElement {
     const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
     try {
-      const res = await fetch('/api/v1/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          title,
-          start_datetime: fmt(start),
-          end_datetime: fmt(end),
-        }),
+      await api.post('/calendar', {
+        title,
+        start_datetime: fmt(start),
+        end_datetime: fmt(end),
+        all_day: false,
+        visibility: 'all',
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this._showToast(`✓ Dodano: „${title}" — ${start.toLocaleDateString('pl-PL', {weekday:'short',day:'numeric',month:'short'})} ${pad(start.getHours())}:${pad(start.getMinutes())}`, 'success', 5000);
     } catch (err) {
-      this._showToast(`Nie udało się dodać: ${err.message}`, 'error');
+      this._showToast(`Nie udało się dodać: ${err.message}`, 'error', 7000);
     }
   }
 }

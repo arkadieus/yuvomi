@@ -125,7 +125,8 @@ const { version: APP_VERSION } = JSON.parse(
 const SERVICE_WORKER_PATH = new URL('../public/sw.js', import.meta.url);
 const SERVICE_WORKER_OPTIONS = {
   appVersion: APP_VERSION,
-  buildRevision: process.env.APP_BUILD_REVISION,
+  // Render ustawia RENDER_GIT_COMMIT przy każdym wdrożeniu — dzięki temu cache service workera zmienia się z kodem.
+  buildRevision: process.env.RENDER_GIT_COMMIT?.slice(0, 12) || process.env.APP_BUILD_REVISION,
 };
 const getServiceWorkerResponse = createServiceWorkerResponseLoader(
   SERVICE_WORKER_PATH,

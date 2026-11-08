@@ -448,6 +448,7 @@ const APP_SHELL = [
   '/utils/popover-menu.js',
   '/utils/quick-link-url.js',
   '/utils/pwa-install.js',
+  '/components/voice-calendar.js',
   '/utils/recipe-meal-types.js',
   '/utils/read-row.js',
   '/utils/recipe-thumb.js',
