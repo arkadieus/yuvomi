@@ -1,0 +1,57 @@
+/* Program stymulacyjny — style tylko tej strony. Kolory z tokenów aplikacji. */
+.stim { display: grid; gap: var(--space-4, 16px); }
+.stim h2, .stim h3 { margin: 0; }
+.stim-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.stim-bar .grow { flex: 1; min-width: 0; }
+.stim-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.stim-tab { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface);
+  color: inherit; font: inherit; cursor: pointer; }
+.stim-tab[aria-current="page"] { background: var(--color-accent); color: var(--color-text-on-accent); border-color: transparent; }
+
+.stim-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.stim-child-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.stim-name { font-weight: 700; font-size: 1.1rem; overflow-wrap: anywhere; }
+.stim-sub { color: var(--color-text-secondary); font-size: .85rem; }
+.stim-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.stim-slot { display: grid; gap: 4px; padding: 10px; border-radius: 12px; border: 1px solid var(--color-border); min-width: 0; }
+.stim-slot.done { background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface)); border-color: var(--color-success); }
+.stim-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.stim-btn { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface);
+  color: inherit; font: inherit; cursor: pointer; }
+.stim-btn.primary { background: var(--color-accent); color: var(--color-text-on-accent); border-color: transparent; font-weight: 600; }
+.stim-btn.danger { color: var(--color-danger); }
+.stim-btn:disabled { opacity: .55; cursor: not-allowed; }
+.stim-field { display: grid; gap: 4px; }
+.stim-field label { font-size: .85rem; color: var(--color-text-secondary); }
+.stim-field input, .stim-field textarea, .stim-field select { font: inherit; padding: 9px; border-radius: 9px; min-width: 0;
+  border: 1px solid var(--color-border-control); background: var(--color-surface); color: inherit; }
+.stim-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border-subtle); }
+.stim-row:last-child { border-bottom: 0; }
+.stim-row > * { min-width: 0; }
+.stim-row .tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.stim-row input[type="number"] { width: 5.5em; }
+.stim-empty { color: var(--color-text-secondary); text-align: center; padding: 18px 8px; }
+.stim-msg { padding: 10px 12px; border-radius: 10px; background: var(--color-surface-2, var(--color-surface)); border: 1px solid var(--color-border); }
+.stim-msg.err { border-color: var(--color-danger); color: var(--color-danger); }
+
+/* Sesja */
+.stim-session { display: grid; gap: 16px; justify-items: center; text-align: center; }
+.stim-progress { width: 100%; height: 8px; border-radius: 999px; background: var(--color-border-subtle); overflow: hidden; }
+.stim-progress > i { display: block; height: 100%; background: var(--color-accent); transition: width .3s; }
+.stim-ex-title { font-size: 1.6rem; font-weight: 800; overflow-wrap: anywhere; }
+.stim-ex-box { width: 100%; text-align: left; display: grid; gap: 10px; }
+.stim-tip { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)); }
+.stim-start { width: 9.5rem; height: 9.5rem; border-radius: 50%; border: 0; cursor: pointer; font-size: 1.8rem; font-weight: 900;
+  background: var(--color-accent); color: var(--color-text-on-accent); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.stim-clock { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stim-ring { width: 10rem; height: 10rem; }
+.stim-ring circle { fill: none; stroke-width: 8; }
+.stim-ring .bg { stroke: var(--color-border); }
+.stim-ring .fg { stroke: var(--color-accent); stroke-linecap: round; transition: stroke-dashoffset .3s linear; }
+.stim-slider { width: 100%; }
+.stim-eng { font-size: 2.2rem; font-weight: 800; }
+
+.stim-log { padding: 8px 0; border-bottom: 1px solid var(--color-border-subtle); display: grid; gap: 4px; }
+.stim-log:last-child { border-bottom: 0; }
+.stim-log textarea { width: 100%; font: inherit; padding: 8px; border-radius: 9px; border: 1px solid var(--color-border-control);
+  background: var(--color-surface); color: inherit; }

@@ -1,0 +1,28 @@
+{
+  "manifestVersion": 1,
+  "id": "stim",
+  "name": "Program stymulacyjny",
+  "version": "1.0.0",
+  "description": "Codzienne sesje ćwiczeń i masażu z dzieckiem: plan, timer, ocena zaangażowania, historia.",
+  "entry": "index.js",
+  "style": "style.css",
+  "icon": "hand",
+  "accent": "#7C5CFC",
+  "menu": {
+    "show": true,
+    "label": "Masaż",
+    "icon": "hand",
+    "order": 55
+  },
+  "page": {
+    "composition": "reading",
+    "width": "content",
+    "navigation": "standard",
+    "responsive": "standard"
+  },
+  "capabilities": {
+    "permissions": {
+      "module": { "label": "Program stymulacyjny", "icon": "hand" }
+    }
+  }
+}

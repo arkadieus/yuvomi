@@ -4,6 +4,7 @@ node_modules/
 # External/customized modules
 modules/*
 !modules/.gitkeep
+!modules/stim/
 
 # Environment variables (NEVER commit)
 .env

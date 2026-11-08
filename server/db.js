@@ -12054,6 +12054,77 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    version: 286,
+    description: 'stim: Program stymulacyjny (dzieci, biblioteka ćwiczeń, plany, sesje, oceny)',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS stim_children (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          name       TEXT NOT NULL,
+          birth_date TEXT,
+          created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+        );
+        CREATE TABLE IF NOT EXISTS stim_exercises (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          name         TEXT NOT NULL,
+          instructions TEXT NOT NULL DEFAULT '',
+          tip          TEXT,
+          default_seconds INTEGER NOT NULL DEFAULT 60,
+          active       INTEGER NOT NULL DEFAULT 1,
+          sort_order   INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS stim_plan (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          child_id         INTEGER NOT NULL REFERENCES stim_children(id) ON DELETE CASCADE,
+          exercise_id      INTEGER NOT NULL REFERENCES stim_exercises(id) ON DELETE CASCADE,
+          duration_seconds INTEGER NOT NULL DEFAULT 60,
+          sort_order       INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_stim_plan_child ON stim_plan(child_id, sort_order);
+        CREATE TABLE IF NOT EXISTS stim_sessions (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          child_id       INTEGER NOT NULL REFERENCES stim_children(id) ON DELETE CASCADE,
+          user_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          session_date   TEXT NOT NULL,
+          slot           TEXT NOT NULL CHECK (slot IN ('morning','evening')),
+          avg_engagement INTEGER NOT NULL DEFAULT 0,
+          completed_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          UNIQUE (child_id, session_date, slot)
+        );
+        CREATE INDEX IF NOT EXISTS idx_stim_sessions_child ON stim_sessions(child_id, session_date DESC);
+        CREATE TABLE IF NOT EXISTS stim_session_logs (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id    INTEGER NOT NULL REFERENCES stim_sessions(id) ON DELETE CASCADE,
+          exercise_id   INTEGER,
+          exercise_name TEXT NOT NULL,
+          engagement    INTEGER NOT NULL DEFAULT 0 CHECK (engagement BETWEEN 0 AND 100),
+          note          TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_stim_logs_session ON stim_session_logs(session_id);
+      `);
+
+      // Biblioteka startowa: blok „Program Stymulacyjny 1/2026" z aplikacji Lovable.
+      const have = database.prepare('SELECT COUNT(*) AS n FROM stim_exercises').get().n;
+      if (have === 0) {
+        const ins = database.prepare(
+          'INSERT INTO stim_exercises (name, instructions, tip, default_seconds, sort_order) VALUES (?, ?, ?, ?, ?)'
+        );
+        const seed = [
+          ['Dociski całego ciała', 'Ucisk powoli od zewnątrz w głąb ciała. 40 sekund na każdą część ciała.', 'Nogi tylko do połowy uda.', 240],
+          ['Turlanie', 'Ręce równe, nogi razem. Turlamy po twardej, równej powierzchni.', 'NIE na łóżku.', 60],
+          ['Zapachy', 'Podajemy do wąchania dwa produkty spożywcze na zmianę.', 'Co kilka dni zmieniamy produkty.', 60],
+          ['Masaż dłoni fakturami', 'Masujemy każdą dłoń przez 1 minutę. Używamy różnych faktur: gąbka do naczyń, gołe dłonie.', 'Zmieniaj faktury w trakcie masażu.', 120],
+          ['Wodzenie wzrokiem', 'Trzymaj ulubiony przedmiot 33–40 cm od oczu dziecka. Prowadź powoli na boki i góra-dół.', 'Wybierz przedmiot budzący zainteresowanie dziecka.', 30],
+          ['Chodzenie po fakturach', 'Dziecko chodzi boso po 2 różnych fakturach ułożonych na podłodze.', 'Może wykonywać samodzielnie. Zacznij od mniej drażniących faktur.', 60],
+          ['Opukiwanie uszu', 'Opukuj odkryte ucho od zewnątrz do wewnątrz. 30 sekund na jedno ucho.', 'Używaj gąbki do naczyń lub gołej dłoni. Ruch powolny.', 60],
+          ['Masaż całego ciała', 'Masaż z użyciem oliwki — mocny i powolny. 2 minuty na każdą stronę ciała.', 'Zadbaj o spokojne otoczenie i ciepłą oliwkę.', 300],
+        ];
+        seed.forEach((e, i) => ins.run(e[0], e[1], e[2], e[3], i + 1));
+      }
+    },
+  },
 ];
 
 /**

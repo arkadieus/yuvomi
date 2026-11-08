@@ -59,7 +59,7 @@ import { accountIdsByEmail, emailMatchKey } from './utils/email-match.js';
 import {
   resolvePermissions, buildSessionModuleAccess, clientPermissions,
   invitePresetPermissions, isValidInvitePreset, writeSubjectPermissions,
-  applyChildStartPermissions, INVITE_PRESET_DEFAULT, PERMISSION_MODULES,
+  applyChildStartPermissions, INVITE_PRESET_DEFAULT, PERMISSION_MODULES, permissionCatalog,
   userForRequest,
 } from './permissions.js';
 import { isAdminRequest, requireAdmin } from './middleware/require-admin.js';
@@ -2277,7 +2277,7 @@ export function buildInviteRoutes(targetRouter, {
   targetRouter.post('/invites/guest-link', requireAuth, requireAdmin, csrfMiddleware, (req, res) => {
     try {
       const modules = {};
-      for (const m of PERMISSION_MODULES) modules[m.key] = 'none';
+      for (const m of permissionCatalog().modules) modules[m.key] = 'none'; /* rdzeń + moduły dodatkowe (ext:*) */
       inviteService.createGuestLink({
         permissions: JSON.stringify({ modules, widgets: {} }),
         createdBy: req.authUserId,
