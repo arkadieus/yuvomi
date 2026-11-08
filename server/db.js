@@ -12007,6 +12007,27 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    version: 283,
+    description: 'chat: text-only family messages (group and 1:1)',
+    up: `
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        body         TEXT    NOT NULL,
+        created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_recipient ON chat_messages(recipient_id, id);
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id, id);
+      CREATE TABLE IF NOT EXISTS chat_reads (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        thread  TEXT    NOT NULL,
+        last_id INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, thread)
+      );
+    `,
+  },
 ];
 
 /**
