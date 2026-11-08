@@ -115,9 +115,13 @@ async function getSubdivisions(countryIsoCode, locale = null) {
   const raw = await apiFetch(`/Subdivisions?countryIsoCode=${encodeURIComponent(countryIsoCode)}`);
   // OpenHolidays fuehrt Namen je SPRACHE, nicht je Locale: `pt-BR` fragt nach PT.
   const langCode = typeof locale === 'string' && locale ? locale.split('-')[0].toUpperCase() : undefined;
+  // `code` ist das Kuerzel, das OpenHolidays selbst beim Filtern (subdivisionCode=) und in
+  // `subdivisions` der Ferien verwendet; `isoCode` ist der ISO-3166-2-Wert und weicht ab
+  // (Polen: code PL-PD, isoCode PL-18 -> mit isoCode kamen fuer Podkarpackie keine Ferien).
+  // Fuer die meisten Laender sind beide gleich; Vorrang hat `code`, wie in getGroups().
   return (raw ?? []).map((s) => ({
-    isoCode: s.isoCode ?? s.code,
-    name: resolveName(s.name, langCode) || s.shortName || s.isoCode || s.code,
+    isoCode: s.code ?? s.isoCode,
+    name: resolveName(s.name, langCode) || s.shortName || s.code || s.isoCode,
   })).sort((a, b) => a.name.localeCompare(b.name, locale || undefined));
 }
 
